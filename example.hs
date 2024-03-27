@@ -11,23 +11,23 @@ import Graphics.Gloss.Interface.IO.Animate
 
 produceFrame :: CamState -> Float -> IO Picture
 produceFrame s t = do
-  e <- runCamWith s 
-    (getSize >>= \(w,h) -> 
-      grabF rgbaToAbgr >>= \fimg ->
-      let bm = bitmapOfForeignPtr w h fp False 
-          fp = toForeignPtr fimg
-      in return bm)
-  either (const $ error "ERROR!") (return) e
+  e <- runCamWith s $ do
+    (w, h) <- getSize
+    fimg <- grabF rgbaToAbgr
+    let fp = toForeignPtr fimg
+    let bf = BitmapFormat BottomToTop PxABGR
+    pure $ bitmapOfForeignPtr w h bf fp False
+  either (const $ error "ERROR!") pure e
                     
 
 -- main = runCam (forM [1..100] (const grab) >> grab >>= saveBmp "test.bmp") (Webcam 0)
-main = do 
-  a <- runCam (Webcam 0) $
-       setSize (300,300) >>
-       grab >>= saveBmp "1.bmp" >> 
-       grab >>= saveBmp "2.bmp" >> 
-       grab >>= saveBmp "3.bmp" >>
-       getSize >>= \(w,h) ->
-       getState >>= \st ->
-       liftIO (animateIO (InWindow "Hello, World!" (w,h) (10,10)) (makeColor 1 1 1 1) (produceFrame st))
+main = do
+  a <- runCam (Webcam 0) $ do
+       setSize (300,300)
+       grab >>= saveBmp "1.bmp"
+       grab >>= saveBmp "2.bmp"
+       grab >>= saveBmp "3.bmp"
+       (w, h) <- getSize
+       st <- getState
+       liftIO $ animateIO (InWindow "Hello, World!" (w,h) (10,10)) (makeColor 1 1 1 1) (produceFrame st) (const $ pure ())
   putStrLn $ show a

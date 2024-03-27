@@ -44,6 +44,7 @@ import Graphics.V4L2
 import qualified Data.Set as S (toList)
 import Data.List (sortBy,minimumBy)
 import Data.Word
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
@@ -62,6 +63,8 @@ import Data.Array.Repa.Repr.ByteString
 import Data.Vector.Unboxed.Base
 import Data.ByteString (pack)
 
+import Prelude hiding (traverse)
+
 import qualified Codec.BMP as BMP
 
 
@@ -79,7 +82,8 @@ data CamState = CamState {
   }
                              
 
-data V4lCamT m a = V4lCamT { unV4lCam :: InnerMonad m a }
+newtype V4lCamT m a = V4lCamT { unV4lCam :: InnerMonad m a }
+    deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadIO)
 
 
 type InnerMonad m a = ErrorT String (StateT CamState m) a
@@ -89,31 +93,9 @@ instance MonadTrans V4lCamT where
   lift = V4lCamT . lift . lift
 
 
-instance MonadIO m => MonadIO (V4lCamT m) where
-  liftIO = lift . liftIO
-
-
-instance Monad m => Monad (V4lCamT m) where
-  f >>= g = V4lCamT $ unV4lCam f >>= (unV4lCam . g)
-  return = V4lCamT . return
-  
-
-instance Monad m => Functor (V4lCamT m) where
-  fmap f act = act >>= return . f
-    
-               
-instance Monad m =>  MonadPlus (V4lCamT m) where
-  mzero = V4lCamT $ mzero
-  mplus (V4lCamT a) (V4lCamT b) = V4lCamT $ mplus a b
-
-
--- instance MonadIO m => MonadIO (V4lCamT m) where
---    liftIO = V4lCamT . lift . lift . liftIO
-
-
 instance Monad m => MonadError String (V4lCamT m) where
     throwError = V4lCamT . throwError
-    catchError (V4lCamT act) errf = V4lCamT $ catchError act (unV4lCam . errf)      
+    catchError (V4lCamT act) errf = V4lCamT $ catchError act (unV4lCam . errf)
 
 
 {-| Get the state data. Internal. -}
